@@ -1,72 +1,51 @@
-import json, math
-import os, subprocess, sys
+"""Bygger public/index.html.
+
+Sidan renderas i webbläsaren ur /api/data (Netlify-funktionen) och pollar den
+var 30:e sekund. Byggtidens ögonblicksbild bakas in som startläge, så att sidan
+visar riktiga siffror direkt vid första paint och fortfarande fungerar om
+funktionen skulle fallera.
+
+Pingisserien: historiken fram till bygget bakas in, och varje ny avläsning som
+pollningen ser läggs till. Läsarens egen serie sparas i localStorage, så den
+växer även mellan omladdningar.
+
+    python3 hamta_data.py && python3 bygg.py
+"""
+import json
+import os
+
 ROT = os.path.dirname(os.path.abspath(__file__))
-KALLA = os.path.join(ROT, "data")
+DATA = os.path.join(ROT, "data")
 UT = os.path.join(ROT, "public", "index.html")
-D = json.load(open(os.path.join(KALLA, "sida.json"), encoding="utf-8"))
-S = json.load(open(os.path.join(KALLA, "serie.json"), encoding="utf-8"))
 
-def tal(n): return f"{n:,}".replace(",", " ")
-MAJ = 175; TOT = 349
-rod, tido = D["rod"], D["tido"]
-ledare = "rod" if rod >= MAJ else "tido" if tido >= MAJ else None
-pct = D["raknade"] / D["ska"] * 100
+D = json.load(open(os.path.join(DATA, "sida.json"), encoding="utf-8"))
+S = json.load(open(os.path.join(DATA, "serie.json"), encoding="utf-8"))
 
-# ---- pingis-diagram, signerat rotskalat -----------------------------------
-W, H = 860, 260
-PAD_L, PAD_R, PAD_T, PAD_B = 62, 18, 22, 34
-def sq(v): return math.copysign(math.sqrt(abs(v)), v)
-vals = [r["avst"] for r in S]
-lo, hi = min(sq(v) for v in vals), max(sq(v) for v in vals)
-lo, hi = min(lo, -12), max(hi, 12)
-span = hi - lo
-def X(i): return PAD_L + i * (W - PAD_L - PAD_R) / max(len(S) - 1, 1)
-def Y(v): return PAD_T + (hi - sq(v)) * (H - PAD_T - PAD_B) / span
-pts = " ".join(f"{X(i):.1f},{Y(r['avst']):.1f}" for i, r in enumerate(S))
-noll = Y(0)
-ticks = [t for t in (-5000, -1000, -200, 0, 200) if lo <= sq(t) <= hi]
-tickmarkup = "".join(
-    f'<line x1="{PAD_L}" y1="{Y(t):.1f}" x2="{W-PAD_R}" y2="{Y(t):.1f}" '
-    f'class="{"grid zero" if t == 0 else "grid"}"/>'
-    f'<text x="{PAD_L-8}" y="{Y(t)+3.5:.1f}" class="tick" text-anchor="end">'
-    f'{"delat" if t == 0 else tal(abs(t))}</text>' for t in ticks)
-# markera skiften
-skiften = "".join(
-    f'<circle cx="{X(i):.1f}" cy="{Y(r["avst"]):.1f}" r="4.5" class="flip"/>'
-    for i, r in enumerate(S) if i and S[i-1]["sd"] != r["sd"])
-sista = f'<circle cx="{X(len(S)-1):.1f}" cy="{Y(S[-1]["avst"]):.1f}" r="6" class="nu"/>'
-omrade = (f'<path d="M {X(0):.1f},{noll:.1f} L ' +
-          " L ".join(f"{X(i):.1f},{Y(r['avst']):.1f}" for i, r in enumerate(S)) +
-          f' L {X(len(S)-1):.1f},{noll:.1f} Z" class="fyll"/>')
+INIT = json.dumps({
+    "snapshot": {
+        "hamtat": D["hamtat"], "raknade": D["raknade"], "ska": D["ska"],
+        "roster": D["roster"], "valdeltagande": D["valdeltagande"],
+        "slutRaknade": D["slut_raknade"], "kontroll": D["kontroll"],
+        "partier": [{"p": p["p"], "mandat": p["mandat"], "andel": p["andel"],
+                     "andel22": p["andel22"], "plus": p["plus"],
+                     "minus": p["minus"], "farg": p["farg"]}
+                    for p in D["partier"]],
+        "rod": D["rod"], "tido": D["tido"],
+        "avst": S[-1]["avst"] if S else None,
+        "sd": S[-1]["sd"] if S else 0, "s": S[-1]["s"] if S else 0,
+    },
+    "serie": S,
+    "kvar": {"antal": D["upp_kvar"], "volym": D["upp_volym"],
+             "storsta": D["storsta_kvar"]},
+}, ensure_ascii=False, separators=(",", ":"))
 
-partirader = "".join(
-    f'<tr><th scope="row"><span class="dot" style="background:{p["farg"] or "#8A94A6"}"></span>'
-    f'{p["p"]}</th>'
-    f'<td class="num stor">{p["mandat"]}</td>'
-    f'<td class="num">{str(p["andel"]).replace(".", ",")} %</td>'
-    f'<td class="num dim">{str(p["andel22"]).replace(".", ",")}</td>'
-    f'<td class="num">{tal(p["plus"])}</td>'
-    f'<td class="num">{tal(p["minus"]) if p["minus"] is not None else "—"}</td></tr>'
-    for p in D["partier"])
-
-kvarrader = "".join(
-    f'<li><span class="kn">{k["namn"]}</span>'
-    f'<span class="kv">{tal(k["est"])}</span></li>' for k in D["storsta_kvar"])
-
-sista_avst = S[-1]["avst"]
-if sista_avst >= 0:
-    lage = f"SD håller det med <strong>{tal(sista_avst)}</strong> rösters marginal"
-else:
-    lage = f"SD saknar <strong>{tal(-sista_avst)}</strong> röster för att ta det"
-
-html = f"""<!doctype html>
+HTML = """<!doctype html>
 <html lang="sv">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mandatpingis — ett mandat avgör riksdagsmajoriteten</title>
-<meta name="description" content="Ett riksdagsmandat studsar mellan S och SD medan onsdagsrösterna räknas. Live-läge ur Valmyndighetens preliminära resultat.">
-<meta name="robots" content="index,follow">
+<meta name="description" content="Ett riksdagsmandat studsar mellan S och SD medan onsdagsrösterna räknas. Live ur Valmyndighetens preliminära resultat.">
 <meta property="og:title" content="Mandatpingis">
 <meta property="og:description" content="Ett riksdagsmandat studsar mellan S och SD medan onsdagsrösterna räknas.">
 <meta property="og:type" content="website">
@@ -74,100 +53,101 @@ html = f"""<!doctype html>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
-:root {{
+:root {
   --bg:#F4F6F9; --panel:#FFFFFF; --ink:#101620; --dim:#5D6879; --faint:#8E99AA;
-  --line:#DCE2EB; --net:#101620; --ball:#E0A400;
+  --line:#DCE2EB; --net:#101620; --ball:#E0A400; --live:#1B9E4B;
   --rod:#C40000; --tido:#1B5CB1;
   color-scheme: light dark;
-}}
-@media (prefers-color-scheme: dark) {{
-  :root:not([data-theme="light"]) {{
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
     --bg:#0D1117; --panel:#151B24; --ink:#E9EEF5; --dim:#97A3B4; --faint:#6E7A8B;
-    --line:#232C38; --net:#E9EEF5; --ball:#FFC531;
+    --line:#232C38; --net:#E9EEF5; --ball:#FFC531; --live:#3DD17A;
     --rod:#FF5A5A; --tido:#6FA8FF;
-  }}
-}}
-:root[data-theme="dark"] {{
+  }
+}
+:root[data-theme="dark"] {
   --bg:#0D1117; --panel:#151B24; --ink:#E9EEF5; --dim:#97A3B4; --faint:#6E7A8B;
-  --line:#232C38; --net:#E9EEF5; --ball:#FFC531;
+  --line:#232C38; --net:#E9EEF5; --ball:#FFC531; --live:#3DD17A;
   --rod:#FF5A5A; --tido:#6FA8FF;
-}}
-* {{ box-sizing:border-box; }}
-html, body {{ margin:0; }}
-img {{ max-width:100%; }}
-body {{
+}
+* { box-sizing:border-box; }
+html, body { margin:0; }
+img { max-width:100%; }
+body {
   background:var(--bg); color:var(--ink);
   font-family:"Familjen Grotesk", system-ui, -apple-system, sans-serif;
   font-size:16px; line-height:1.5;
-}}
-.wrap {{ max-width:900px; margin:0 auto; padding-inline:20px; padding-block:32px 56px; }}
-.mono {{ font-family:"IBM Plex Mono", ui-monospace, monospace; }}
-.num {{ font-variant-numeric:tabular-nums; }}
-h1 {{ font-size:clamp(2.1rem,7vw,3.2rem); font-weight:700; letter-spacing:-.02em;
-     margin:0; text-wrap:balance; }}
-.sub {{ color:var(--dim); margin:.35rem 0 0; max-width:62ch; }}
-.stamp {{ font-family:"IBM Plex Mono", monospace; font-size:.72rem; letter-spacing:.09em;
-   text-transform:uppercase; color:var(--faint); display:flex; flex-wrap:wrap; gap:.4rem 1.1rem;
-   margin-top:1.1rem; }}
-.card {{ background:var(--panel); border:1px solid var(--line); border-radius:10px;
-   padding:22px; margin-top:22px; }}
-.lbl {{ font-family:"IBM Plex Mono", monospace; font-size:.7rem; letter-spacing:.12em;
-   text-transform:uppercase; color:var(--faint); margin:0 0 .9rem; }}
-
-/* bordet */
-.board {{ text-align:center; }}
-.score {{ display:flex; align-items:flex-end; justify-content:center; gap:clamp(14px,5vw,44px);
-   margin-bottom:18px; flex-wrap:wrap; }}
-.side .n {{ font-size:clamp(3rem,13vw,5rem); font-weight:700; line-height:.9;
-   font-variant-numeric:tabular-nums; display:block; }}
-.side .t {{ font-family:"IBM Plex Mono", monospace; font-size:.72rem; letter-spacing:.11em;
-   text-transform:uppercase; color:var(--dim); }}
-.side.r .n {{ color:var(--rod); }} .side.t2 .n {{ color:var(--tido); }}
-.side.win .n::after {{ content:""; display:block; height:3px; margin-top:.35rem;
-   background:currentColor; border-radius:2px; }}
-.vs {{ font-family:"IBM Plex Mono", monospace; color:var(--faint); font-size:.8rem;
-   padding-bottom:1.2rem; }}
-.track {{ position:relative; height:44px; border-radius:6px; overflow:hidden;
-   background:var(--line); display:flex; }}
-.track .r {{ background:var(--rod); }} .track .t2 {{ background:var(--tido); }}
-.netline {{ position:absolute; top:-9px; bottom:-9px; width:3px; background:var(--net);
-   box-shadow:0 0 0 2px var(--panel); border-radius:2px; }}
-.netlbl {{ font-family:"IBM Plex Mono", monospace; font-size:.68rem; letter-spacing:.1em;
-   color:var(--dim); margin-top:14px; }}
-.verdict {{ margin-top:16px; font-size:1.05rem; text-wrap:balance; }}
-.verdict strong {{ font-variant-numeric:tabular-nums; }}
-
-/* diagram */
-svg {{ width:100%; height:auto; display:block; }}
-.grid {{ stroke:var(--line); stroke-width:1; }}
-.grid.zero {{ stroke:var(--net); stroke-width:1.5; stroke-dasharray:4 3; }}
-.tick {{ fill:var(--faint); font-family:"IBM Plex Mono", monospace; font-size:10px; }}
-.linje {{ fill:none; stroke:var(--ball); stroke-width:2.2; stroke-linejoin:round; }}
-.fyll {{ fill:var(--ball); opacity:.10; }}
-.flip {{ fill:var(--bg); stroke:var(--ball); stroke-width:2.2; }}
-.nu {{ fill:var(--ball); stroke:var(--panel); stroke-width:2.5; }}
-
-table {{ width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }}
-th, td {{ padding:.5rem .35rem; border-bottom:1px solid var(--line); text-align:right; }}
-thead th {{ font-family:"IBM Plex Mono", monospace; font-size:.64rem; letter-spacing:.09em;
-   text-transform:uppercase; color:var(--faint); font-weight:500; white-space:nowrap; }}
-tbody th {{ text-align:left; font-weight:600; white-space:nowrap; }}
-td.stor {{ font-size:1.15rem; font-weight:600; }}
-td.dim {{ color:var(--faint); }}
-.dot {{ display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:.5rem;
-   vertical-align:baseline; }}
-.tblwrap {{ overflow-x:auto; }}
-
-ul.kvar {{ list-style:none; margin:0; padding:0; }}
-ul.kvar li {{ display:flex; justify-content:space-between; gap:1rem; padding:.42rem 0;
-   border-bottom:1px solid var(--line); }}
-ul.kvar li:last-child {{ border-bottom:0; }}
-.kn {{ color:var(--ink); }} .kv {{ font-family:"IBM Plex Mono", monospace; color:var(--dim);
-   font-variant-numeric:tabular-nums; }}
-.grid2 {{ display:grid; gap:22px; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }}
-.foot {{ color:var(--faint); font-size:.85rem; margin-top:34px; }}
-.foot a {{ color:var(--dim); }}
-@media (prefers-reduced-motion:reduce) {{ * {{ animation:none !important; transition:none !important; }} }}
+}
+.wrap { max-width:900px; margin:0 auto; padding-inline:20px; padding-block:32px 56px; }
+.mono { font-family:"IBM Plex Mono", ui-monospace, monospace; }
+.num { font-variant-numeric:tabular-nums; }
+h1 { font-size:clamp(2.1rem,7vw,3.2rem); font-weight:700; letter-spacing:-.02em;
+     margin:0; text-wrap:balance; }
+.sub { color:var(--dim); margin:.35rem 0 0; max-width:62ch; }
+.stamp { font-family:"IBM Plex Mono", monospace; font-size:.72rem; letter-spacing:.09em;
+   text-transform:uppercase; color:var(--faint); display:flex; flex-wrap:wrap;
+   gap:.4rem 1.1rem; margin-top:1.1rem; align-items:center; }
+.puls { display:inline-flex; align-items:center; gap:.42rem; color:var(--live); }
+.puls i { width:7px; height:7px; border-radius:50%; background:currentColor;
+   animation:blink 2.4s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+.puls.av { color:var(--faint); } .puls.av i { animation:none; }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:10px;
+   padding:22px; margin-top:22px; }
+.lbl { font-family:"IBM Plex Mono", monospace; font-size:.7rem; letter-spacing:.12em;
+   text-transform:uppercase; color:var(--faint); margin:0 0 .9rem; }
+.board { text-align:center; }
+.score { display:flex; align-items:flex-end; justify-content:center;
+   gap:clamp(14px,5vw,44px); margin-bottom:18px; flex-wrap:wrap; }
+.side .n { font-size:clamp(3rem,13vw,5rem); font-weight:700; line-height:.9;
+   font-variant-numeric:tabular-nums; display:block;
+   transition:color .25s ease; }
+.side .t { font-family:"IBM Plex Mono", monospace; font-size:.72rem; letter-spacing:.11em;
+   text-transform:uppercase; color:var(--dim); }
+.side.r .n { color:var(--rod); } .side.t2 .n { color:var(--tido); }
+.side .n::after { content:""; display:block; height:3px; margin-top:.35rem;
+   border-radius:2px; background:transparent; }
+.side.win .n::after { background:currentColor; }
+.vs { font-family:"IBM Plex Mono", monospace; color:var(--faint); font-size:.8rem;
+   padding-bottom:1.2rem; }
+.track { position:relative; height:44px; border-radius:6px; overflow:hidden;
+   background:var(--line); display:flex; }
+.track .r { background:var(--rod); transition:width .4s ease; }
+.track .t2 { background:var(--tido); transition:width .4s ease; }
+.netline { position:absolute; top:-9px; bottom:-9px; width:3px; background:var(--net);
+   box-shadow:0 0 0 2px var(--panel); border-radius:2px; }
+.netlbl { font-family:"IBM Plex Mono", monospace; font-size:.68rem; letter-spacing:.1em;
+   color:var(--dim); margin-top:14px; }
+.verdict { margin-top:16px; font-size:1.05rem; text-wrap:balance; }
+.verdict strong { font-variant-numeric:tabular-nums; }
+svg { width:100%; height:auto; display:block; }
+.grid { stroke:var(--line); stroke-width:1; }
+.grid.zero { stroke:var(--net); stroke-width:1.5; stroke-dasharray:4 3; }
+.tick { fill:var(--faint); font-family:"IBM Plex Mono", monospace; font-size:10px; }
+.linje { fill:none; stroke:var(--ball); stroke-width:2.2; stroke-linejoin:round; }
+.fyll { fill:var(--ball); opacity:.10; }
+.flip { fill:var(--panel); stroke:var(--ball); stroke-width:2.2; }
+.nu { fill:var(--ball); stroke:var(--panel); stroke-width:2.5; }
+table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+th, td { padding:.5rem .35rem; border-bottom:1px solid var(--line); text-align:right; }
+thead th { font-family:"IBM Plex Mono", monospace; font-size:.64rem; letter-spacing:.09em;
+   text-transform:uppercase; color:var(--faint); font-weight:500; white-space:nowrap; }
+tbody th { text-align:left; font-weight:600; white-space:nowrap; }
+td.stor { font-size:1.15rem; font-weight:600; }
+td.dim { color:var(--faint); }
+.dot { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:.5rem; }
+.tblwrap { overflow-x:auto; }
+ul.kvar { list-style:none; margin:0; padding:0; }
+ul.kvar li { display:flex; justify-content:space-between; gap:1rem; padding:.42rem 0;
+   border-bottom:1px solid var(--line); }
+ul.kvar li:last-child { border-bottom:0; }
+.kn { color:var(--ink); } .kv { font-family:"IBM Plex Mono", monospace; color:var(--dim);
+   font-variant-numeric:tabular-nums; }
+.grid2 { display:grid; gap:22px; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
+.foot { color:var(--faint); font-size:.85rem; margin-top:34px; }
+.varn { color:var(--rod); font-weight:600; }
+@media (prefers-reduced-motion:reduce) { *{animation:none!important;transition:none!important} }
 </style>
 </head>
 <body>
@@ -177,44 +157,34 @@ ul.kvar li:last-child {{ border-bottom:0; }}
     <p class="sub">Ett enda riksdagsmandat studsar mellan S och SD medan onsdagsrösterna
       räknas. Det avgör om de rödgröna behåller egen majoritet.</p>
     <div class="stamp">
-      <span>Uppdaterad {D['hamtat']}</span>
-      <span>{tal(D['raknade'])} av {tal(D['ska'])} distrikt · {pct:.1f} %</span>
-      <span>Valdeltagande {D['valdeltagande']}</span>
+      <span class="puls" id="puls"><i></i><span id="pulstext">live</span></span>
+      <span id="st-tid"></span>
+      <span id="st-distrikt"></span>
+      <span id="st-valdelt"></span>
     </div>
   </header>
 
   <section class="card board">
-    <p class="lbl">Blocken · majoritet vid {MAJ} av {TOT}</p>
+    <p class="lbl">Blocken · majoritet vid 175 av 349</p>
     <div class="score">
-      <div class="side r {'win' if ledare=='rod' else ''}">
-        <span class="n">{rod}</span><span class="t">Rödgröna · S V MP C</span></div>
+      <div class="side r" id="sida-rod">
+        <span class="n" id="n-rod">—</span><span class="t">Rödgröna · S V MP C</span></div>
       <div class="vs">mot</div>
-      <div class="side t2 {'win' if ledare=='tido' else ''}">
-        <span class="n">{tido}</span><span class="t">Tidö · M KD L SD</span></div>
+      <div class="side t2" id="sida-tido">
+        <span class="n" id="n-tido">—</span><span class="t">Tidö · M KD L SD</span></div>
     </div>
     <div class="track">
-      <div class="r" style="width:{rod/TOT*100:.3f}%"></div>
-      <div class="t2" style="width:{tido/TOT*100:.3f}%"></div>
-      <div class="netline" style="left:{MAJ/TOT*100:.3f}%"></div>
+      <div class="r" id="bar-rod"></div><div class="t2" id="bar-tido"></div>
+      <div class="netline" style="left:50.143%"></div>
     </div>
-    <p class="netlbl mono">▲ nätet går vid {MAJ} mandat</p>
-    <p class="verdict">{'De rödgröna har egen majoritet — med ' + str(rod-MAJ+1) + ' mandats marginal.' if ledare=='rod' else 'Tidö har egen majoritet.' if ledare=='tido' else 'Ingen sida når 175.'}
-      Det omstridda mandatet: {lage}.</p>
+    <p class="netlbl mono">▲ nätet går vid 175 mandat</p>
+    <p class="verdict" id="verdict"></p>
   </section>
 
   <section class="card">
     <p class="lbl">Pingisen · avstånd till det 349:e mandatet, per avläsning</p>
-    <svg viewBox="0 0 {W} {H}" role="img"
-         aria-label="Avståndet i röster mellan SD och det sista mandatet över eftermiddagen">
-      {tickmarkup}
-      {omrade}
-      <polyline class="linje" points="{pts}"/>
-      {skiften}{sista}
-      <text x="{PAD_L}" y="{H-10}" class="tick">{S[0]['tid']} · {tal(S[0]['raknade'])} distrikt</text>
-      <text x="{W-PAD_R}" y="{H-10}" class="tick" text-anchor="end">{S[-1]['tid']} · {tal(S[-1]['raknade'])} distrikt</text>
-    </svg>
-    <p class="netlbl mono">Över den streckade linjen håller SD mandatet, under saknas det.
-      Ringar markerar de {sum(1 for i,r in enumerate(S) if i and S[i-1]['sd']!=r['sd'])} gånger mandatet bytt ägare.</p>
+    <div id="chart"></div>
+    <p class="netlbl mono" id="chart-txt"></p>
   </section>
 
   <section class="card">
@@ -224,7 +194,7 @@ ul.kvar li:last-child {{ border-bottom:0; }}
         <thead><tr><th scope="col" style="text-align:left">Parti</th>
           <th scope="col">Mandat</th><th scope="col">Andel</th><th scope="col">2022</th>
           <th scope="col">+1 kräver</th><th scope="col">−1 vid tapp</th></tr></thead>
-        <tbody>{partirader}</tbody>
+        <tbody id="tbody"></tbody>
       </table>
     </div>
   </section>
@@ -232,26 +202,183 @@ ul.kvar li:last-child {{ border-bottom:0; }}
   <div class="grid2">
     <section class="card">
       <p class="lbl">Kvar att räkna</p>
-      <p style="margin:0 0 .8rem"><span class="mono num" style="font-size:2rem;font-weight:600">{tal(D['upp_kvar'])}</span>
-        uppsamlingsdistrikt, uppskattat <span class="mono num">{tal(D['upp_volym'])}</span> röster.</p>
-      <p style="margin:0;color:var(--dim);font-size:.92rem">Det är sena förtidsröster och
-        brevröster som inte kunnat knytas till ett vallokalsdistrikt. Alla 6 312 vallokalsdistrikt
-        är färdigräknade. Länsstyrelserna har hittills räknat om {tal(D['slut_raknade'])} distrikt.</p>
+      <p style="margin:0 0 .8rem"><span class="mono num" id="k-antal"
+         style="font-size:2rem;font-weight:600"></span>
+        uppsamlingsdistrikt, uppskattat <span class="mono num" id="k-volym"></span> röster.</p>
+      <p style="margin:0;color:var(--dim);font-size:.92rem">Sena förtidsröster och brevröster
+        som inte kunnat knytas till ett vallokalsdistrikt. Alla 6 312 vallokalsdistrikt är
+        färdigräknade. Länsstyrelserna har räknat om <span class="mono num" id="k-slut"></span>
+        distrikt.</p>
     </section>
     <section class="card">
       <p class="lbl">Störst av det som saknas</p>
-      <ul class="kvar">{kvarrader}</ul>
+      <ul class="kvar" id="k-lista"></ul>
     </section>
   </div>
 
   <p class="foot">Källa: Valmyndigheten, <span class="mono">resultat.val.se</span>, preliminärt
-    resultat. Mandatfördelningen är omräknad med jämkade uddatalsmetoden och stämd mot
-    Valmyndighetens egen fördelning vid varje avläsning. Volymen som återstår är uppskattad ur
-    2022 års utfall per kommun och är inte ett officiellt tal. Siffrorna är preliminära —
-    länsstyrelsernas slutliga rösträkning är en omräkning där redan räknade tal kan ändras.</p>
+    resultat, hämtat om var 30:e sekund. Mandatfördelningen räknas om med jämkade
+    uddatalsmetoden och stäms av mot Valmyndighetens egen fördelning vid varje hämtning.
+    Volymen som återstår är uppskattad ur 2022 års utfall per kommun och är inte ett
+    officiellt tal. Siffrorna är preliminära — länsstyrelsernas slutliga rösträkning är en
+    omräkning där redan räknade tal kan ändras.</p>
 </div>
+
+<script>
+const INIT = __INIT__;
+const MAJ = 175, TOT = 349;
+const $ = (id) => document.getElementById(id);
+const tal = (n) => (n == null ? "—" : Math.round(n).toLocaleString("sv-SE"));
+
+let serie = INIT.serie.slice();
+try {
+  const sparad = JSON.parse(localStorage.getItem("mandatpingis.serie") || "[]");
+  if (Array.isArray(sparad) && sparad.length) {
+    const m = new Map(serie.map((r) => [r.raknade, r]));
+    for (const r of sparad) if (r && r.raknade) m.set(r.raknade, r);
+    serie = [...m.values()].sort((a, b) => a.raknade - b.raknade);
+  }
+} catch (e) { /* privat läge eller blockerad lagring — kör vidare utan historik */ }
+
+function spara() {
+  try {
+    localStorage.setItem("mandatpingis.serie", JSON.stringify(serie.slice(-400)));
+  } catch (e) { /* strunt samma */ }
+}
+
+function ritaChart() {
+  const W = 860, H = 260, PL = 62, PR = 18, PT = 22, PB = 34;
+  if (serie.length < 2) { $("chart").innerHTML = ""; return; }
+  const sq = (v) => Math.sign(v) * Math.sqrt(Math.abs(v));
+  const ys = serie.map((r) => sq(r.avst));
+  let lo = Math.min(...ys, -12), hi = Math.max(...ys, 12);
+  const span = hi - lo || 1;
+  const X = (i) => PL + i * (W - PL - PR) / Math.max(serie.length - 1, 1);
+  const Y = (v) => PT + (hi - sq(v)) * (H - PT - PB) / span;
+  let g = "";
+  for (const t of [-5000, -1000, -200, 0, 200, 1000]) {
+    const y = sq(t);
+    if (y < lo || y > hi) continue;
+    g += `<line x1="${PL}" y1="${Y(t).toFixed(1)}" x2="${W - PR}" y2="${Y(t).toFixed(1)}" class="grid${t === 0 ? " zero" : ""}"/>`
+      + `<text x="${PL - 8}" y="${(Y(t) + 3.5).toFixed(1)}" class="tick" text-anchor="end">${t === 0 ? "delat" : tal(Math.abs(t))}</text>`;
+  }
+  const pts = serie.map((r, i) => `${X(i).toFixed(1)},${Y(r.avst).toFixed(1)}`);
+  const noll = Y(0).toFixed(1);
+  const fyll = `<path d="M ${X(0).toFixed(1)},${noll} L ${pts.join(" L ")} L ${X(serie.length - 1).toFixed(1)},${noll} Z" class="fyll"/>`;
+  let byten = 0, flip = "";
+  serie.forEach((r, i) => {
+    if (i && serie[i - 1].sd !== r.sd) {
+      byten++;
+      flip += `<circle cx="${X(i).toFixed(1)}" cy="${Y(r.avst).toFixed(1)}" r="4.5" class="flip"/>`;
+    }
+  });
+  const sistI = serie.length - 1;
+  $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Avstånd i röster mellan SD och det sista mandatet över tid">`
+    + g + fyll + `<polyline class="linje" points="${pts.join(" ")}"/>` + flip
+    + `<circle cx="${X(sistI).toFixed(1)}" cy="${Y(serie[sistI].avst).toFixed(1)}" r="6" class="nu"/>`
+    + `<text x="${PL}" y="${H - 10}" class="tick">${serie[0].tid} · ${tal(serie[0].raknade)} distrikt</text>`
+    + `<text x="${W - PR}" y="${H - 10}" class="tick" text-anchor="end">${serie[sistI].tid} · ${tal(serie[sistI].raknade)} distrikt</text>`
+    + `</svg>`;
+  $("chart-txt").textContent = `Över den streckade linjen håller SD mandatet, under saknas det.`
+    + ` Ringar markerar de ${byten} gånger mandatet bytt ägare.`;
+}
+
+function rita(d) {
+  $("st-tid").textContent = "Uppdaterad " + d.hamtat;
+  $("st-distrikt").textContent = `${tal(d.raknade)} av ${tal(d.ska)} distrikt · ${(d.raknade / d.ska * 100).toFixed(1)} %`;
+  $("st-valdelt").textContent = "Valdeltagande " + d.valdeltagande;
+
+  $("n-rod").textContent = d.rod;
+  $("n-tido").textContent = d.tido;
+  $("sida-rod").classList.toggle("win", d.rod >= MAJ);
+  $("sida-tido").classList.toggle("win", d.tido >= MAJ);
+  $("bar-rod").style.width = (d.rod / TOT * 100).toFixed(3) + "%";
+  $("bar-tido").style.width = (d.tido / TOT * 100).toFixed(3) + "%";
+
+  let v;
+  if (!d.kontroll) {
+    v = `<span class="varn">Den egna mandatfördelningen stämmer inte mot Valmyndighetens — marginalerna visas inte.</span>`;
+  } else {
+    const led = d.rod >= MAJ
+      ? `De rödgröna har egen majoritet — med ${d.rod - MAJ + 1} mandats marginal.`
+      : d.tido >= MAJ
+        ? `Tidö har egen majoritet — med ${d.tido - MAJ + 1} mandats marginal.`
+        : "Ingen sida når 175.";
+    const lage = d.avst == null ? ""
+      : d.avst >= 0
+        ? ` Det omstridda mandatet: SD håller det med <strong>${tal(d.avst)}</strong> rösters marginal.`
+        : ` Det omstridda mandatet: SD saknar <strong>${tal(-d.avst)}</strong> röster för att ta det.`;
+    v = led + lage;
+  }
+  $("verdict").innerHTML = v;
+
+  $("tbody").innerHTML = d.partier.map((p) => `<tr>`
+    + `<th scope="row"><span class="dot" style="background:${p.farg || "#8E99AA"}"></span>${p.p}</th>`
+    + `<td class="num stor">${p.mandat}</td>`
+    + `<td class="num">${String(p.andel).replace(".", ",")}\\u00a0%</td>`
+    + `<td class="num dim">${String(p.andel22).replace(".", ",")}</td>`
+    + `<td class="num">${d.kontroll ? tal(p.plus) : "—"}</td>`
+    + `<td class="num">${d.kontroll && p.minus != null ? tal(p.minus) : "—"}</td></tr>`).join("");
+
+  // Volymen kan bara skalas, inte räknas om live: den bygger på ett svep av
+  // 314 föräldrafiler som görs vid bygget.
+  const kvarNu = Math.max(d.ska - d.raknade, 0);
+  const andel = INIT.kvar.antal ? kvarNu / INIT.kvar.antal : 0;
+  $("k-antal").textContent = tal(kvarNu);
+  $("k-volym").textContent = tal(INIT.kvar.volym * andel);
+  $("k-slut").textContent = tal(d.slutRaknade);
+  $("k-lista").innerHTML = INIT.kvar.storsta
+    .map((k) => `<li><span class="kn">${k.namn}</span><span class="kv">${tal(k.est)}</span></li>`)
+    .join("");
+}
+
+function laggTill(d) {
+  if (d.avst == null) return;
+  const t = new Date();
+  const rad = {
+    tid: String(t.getHours()).padStart(2, "0") + ":" + String(t.getMinutes()).padStart(2, "0"),
+    raknade: d.raknade, rod: d.rod, tido: d.tido, s: d.s, sd: d.sd, avst: d.avst,
+  };
+  const i = serie.findIndex((r) => r.raknade === d.raknade);
+  if (i >= 0) serie[i] = { ...serie[i], ...rad, tid: serie[i].tid };
+  else serie.push(rad);
+  serie.sort((a, b) => a.raknade - b.raknade);
+  spara();
+}
+
+let fel = 0;
+async function hamta() {
+  try {
+    const r = await fetch("/api/data", { cache: "no-store" });
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    if (d.fel) throw new Error(d.fel);
+    fel = 0;
+    $("puls").classList.remove("av");
+    $("pulstext").textContent = "live";
+    laggTill(d);
+    rita(d);
+    ritaChart();
+  } catch (e) {
+    fel++;
+    if (fel >= 2) {
+      $("puls").classList.add("av");
+      $("pulstext").textContent = "ingen kontakt";
+    }
+  }
+}
+
+rita(INIT.snapshot);
+ritaChart();
+hamta();
+setInterval(hamta, 30000);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) hamta();
+});
+</script>
 </body>
 </html>
 """
-open(UT, "w", encoding="utf-8").write(html)
-print("skrev", UT, len(html), "tecken")
+
+open(UT, "w", encoding="utf-8").write(HTML.replace("__INIT__", INIT))
+print(f"skrev {UT} ({len(HTML) + len(INIT)} tecken, {len(S)} seriepunkter)")

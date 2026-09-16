@@ -1,10 +1,18 @@
 [build]
   publish = "public"
 
-# Ingen byggkommando: sidan genereras lokalt med
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# Inget byggkommando: public/index.html genereras lokalt med
 #   python3 hamta_data.py && python3 bygg.py
-# och public/index.html checkas in. Netlify har ingen tillgång till
-# mandatmarginal-projektets sparade råfiler, så serien kan inte byggas där.
+# och checkas in. Netlify har ingen tillgång till mandatmarginal-projektets
+# sparade råfiler, så den inbakade historiken kan bara byggas här.
+#
+# Siffrorna på sidan är däremot live: /api/data hämtar Valmyndigheten vid varje
+# anrop, eftersom resultat.val.se inte skickar CORS-headers och webbläsaren
+# därför inte får läsa källan direkt.
 
 [[headers]]
   for = "/*"
