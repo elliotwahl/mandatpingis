@@ -228,7 +228,11 @@ ul.kvar li:last-child { border-bottom:0; }
 const INIT = __INIT__;
 const MAJ = 175, TOT = 349;
 const $ = (id) => document.getElementById(id);
-const tal = (n) => (n == null ? "—" : Math.round(n).toLocaleString("sv-SE"));
+// toLocaleString ger hårt mellanslag, som får full teckenbredd i IBM Plex Mono
+// och slitar isär tusentalen. Smalt hårt mellanslag i stället.
+const tal = (n) => (n == null ? "—"
+  : Math.round(n).toLocaleString("sv-SE").replace(/\u00a0|\s/g, "\u202f"));
+const pct = (v) => Number(v).toFixed(1).replace(".", ",");
 
 let serie = INIT.serie.slice();
 try {
@@ -315,8 +319,8 @@ function rita(d) {
   $("tbody").innerHTML = d.partier.map((p) => `<tr>`
     + `<th scope="row"><span class="dot" style="background:${p.farg || "#8E99AA"}"></span>${p.p}</th>`
     + `<td class="num stor">${p.mandat}</td>`
-    + `<td class="num">${String(p.andel).replace(".", ",")}\\u00a0%</td>`
-    + `<td class="num dim">${String(p.andel22).replace(".", ",")}</td>`
+    + `<td class="num">${pct(p.andel)}\u202f%</td>`
+    + `<td class="num dim">${pct(p.andel22)}</td>`
     + `<td class="num">${d.kontroll ? tal(p.plus) : "—"}</td>`
     + `<td class="num">${d.kontroll && p.minus != null ? tal(p.minus) : "—"}</td></tr>`).join("");
 
