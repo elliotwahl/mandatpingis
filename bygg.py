@@ -146,6 +146,34 @@ ul.kvar li:last-child { border-bottom:0; }
    font-variant-numeric:tabular-nums; }
 .grid2 { display:grid; gap:22px; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
 .foot { color:var(--faint); font-size:.85rem; margin-top:34px; }
+.lagevaljare { margin-left:auto; display:inline-flex; border:1px solid var(--line);
+   border-radius:999px; overflow:hidden; }
+.lagevaljare button { font:inherit; font-family:"IBM Plex Mono",monospace;
+   font-size:.66rem; letter-spacing:.1em; text-transform:uppercase; cursor:pointer;
+   border:0; background:transparent; color:var(--faint); padding:.42rem .8rem; }
+.lagevaljare button[aria-pressed="true"] { background:var(--ink); color:var(--bg); }
+.lagevaljare button:focus-visible { outline:2px solid var(--ball); outline-offset:1px; }
+#bord { display:none; }
+/* Pingisläge: brädan blir ett bordtennisbord sett uppifrån. Nätet står kvar
+   vid 175 mandat, blockens andel tonar halvorna, och bollen ligger på den sida
+   som just nu håller det omstridda mandatet. */
+[data-lage="pingis"] .track, [data-lage="pingis"] .netlbl { display:none; }
+[data-lage="pingis"] #bord { display:block; }
+[data-lage="pingis"] .board { background:#0C4A6E; border-color:#0A3A55; }
+[data-lage="pingis"] .board .lbl, [data-lage="pingis"] .board .side .t { color:#9CC9E3; }
+[data-lage="pingis"] .board .verdict { color:#EAF4FA; }
+[data-lage="pingis"] .board .vs { color:#7FB3D0; }
+[data-lage="pingis"] .board .side.r .n { color:#FF8A8A; }
+[data-lage="pingis"] .board .side.t2 .n { color:#8FC4FF; }
+.bordyta { fill:#1668A8; }
+.bordlinje { stroke:#F2F6F8; stroke-width:3; fill:none; }
+.bordhalva.r { fill:var(--rod); } .bordhalva.t2 { fill:var(--tido); }
+.natstolpe { fill:#E8EEF2; } .nat { fill:#DCE6EC; }
+.boll { fill:#FFD34D; stroke:#7A5B00; stroke-width:1.5;
+   transition:cx .55s cubic-bezier(.34,1.3,.64,1), cy .55s ease; }
+.bolltext { fill:#EAF4FA; font-family:"IBM Plex Mono",monospace; font-size:11px; }
+.studs { animation:studs .55s ease; }
+@keyframes studs { 0%,100%{transform:translateY(0)} 45%{transform:translateY(-14px)} }
 .varn { color:var(--rod); font-weight:600; }
 @media (prefers-reduced-motion:reduce) { *{animation:none!important;transition:none!important} }
 </style>
@@ -161,6 +189,10 @@ ul.kvar li:last-child { border-bottom:0; }
       <span id="st-tid"></span>
       <span id="st-distrikt"></span>
       <span id="st-valdelt"></span>
+      <span class="lagevaljare" role="group" aria-label="Utseende">
+        <button type="button" id="lage-enkel" aria-pressed="true">Enkel</button>
+        <button type="button" id="lage-pingis" aria-pressed="false">Pingis</button>
+      </span>
     </div>
   </header>
 
@@ -177,6 +209,7 @@ ul.kvar li:last-child { border-bottom:0; }
       <div class="r" id="bar-rod"></div><div class="t2" id="bar-tido"></div>
       <div class="netline" style="left:50.143%"></div>
     </div>
+    <div id="bord"></div>
     <p class="netlbl mono">▲ nätet går vid 175 mandat</p>
     <p class="verdict" id="verdict"></p>
   </section>
@@ -287,6 +320,32 @@ function ritaChart() {
     + ` Ringar markerar de ${byten} gånger mandatet bytt ägare.`;
 }
 
+function ritaBord(d) {
+  const W = 860, H = 246, M = 32;
+  const bw = W - M * 2, bh = H - M * 2;
+  const natX = M + bw * MAJ / TOT;
+  const rodB = bw * d.rod / TOT, tidoB = bw * d.tido / TOT;
+  const harRod = d.avst == null ? null : d.avst < 0;   // SD saknar -> S håller det
+  const bollX = harRod === null ? natX : harRod ? M + rodB * 0.55 : M + bw - tidoB * 0.55;
+  const bollY = M + bh * 0.5;
+  $("bord").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img"
+      aria-label="Bordtennisbord där nätet står vid 175 mandat och bollen ligger hos den sida som håller det omstridda mandatet">
+    <rect x="${M}" y="${M}" width="${bw}" height="${bh}" rx="4" class="bordyta"/>
+    <rect x="${M}" y="${M}" width="${rodB.toFixed(1)}" height="${bh}" class="bordhalva r" opacity="0.30"/>
+    <rect x="${(M + bw - tidoB).toFixed(1)}" y="${M}" width="${tidoB.toFixed(1)}" height="${bh}" class="bordhalva t2" opacity="0.30"/>
+    <rect x="${M}" y="${M}" width="${bw}" height="${bh}" rx="4" class="bordlinje"/>
+    <line x1="${M}" y1="${M + bh / 2}" x2="${W - M}" y2="${M + bh / 2}" class="bordlinje" stroke-width="2"/>
+    <rect x="${natX - 1.5}" y="${M - 9}" width="3" height="${bh + 18}" class="nat"/>
+    <rect x="${natX - 5}" y="${M - 14}" width="10" height="6" rx="2" class="natstolpe"/>
+    <rect x="${natX - 5}" y="${M + bh + 8}" width="10" height="6" rx="2" class="natstolpe"/>
+    <circle id="bollen" cx="${bollX.toFixed(1)}" cy="${bollY}" r="11" class="boll"/>
+    <text x="${M}" y="${H - 4}" class="bolltext">Rödgröna</text>
+    <text x="${W - M}" y="${H - 4}" class="bolltext" text-anchor="end">Tidö</text>
+    <text x="${natX}" y="11" class="bolltext" text-anchor="middle">175</text>
+  </svg>`;
+}
+
+let forraSd = null;
 function rita(d) {
   $("st-tid").textContent = "Uppdaterad " + d.hamtat;
   $("st-distrikt").textContent = `${tal(d.raknade)} av ${tal(d.ska)} distrikt · ${(d.raknade / d.ska * 100).toFixed(1)} %`;
@@ -315,6 +374,12 @@ function rita(d) {
     v = led + lage;
   }
   $("verdict").innerHTML = v;
+  ritaBord(d);
+  if (forraSd !== null && d.sd !== forraSd) {
+    const b = $("bollen");
+    if (b) { b.classList.remove("studs"); void b.getBBox(); b.classList.add("studs"); }
+  }
+  forraSd = d.sd;
 
   $("tbody").innerHTML = d.partier.map((p) => `<tr>`
     + `<th scope="row"><span class="dot" style="background:${p.farg || "#8E99AA"}"></span>${p.p}</th>`
@@ -324,16 +389,30 @@ function rita(d) {
     + `<td class="num">${d.kontroll ? tal(p.plus) : "—"}</td>`
     + `<td class="num">${d.kontroll && p.minus != null ? tal(p.minus) : "—"}</td></tr>`).join("");
 
-  // Volymen kan bara skalas, inte räknas om live: den bygger på ett svep av
-  // 314 föräldrafiler som görs vid bygget.
-  const kvarNu = Math.max(d.ska - d.raknade, 0);
-  const andel = INIT.kvar.antal ? kvarNu / INIT.kvar.antal : 0;
-  $("k-antal").textContent = tal(kvarNu);
-  $("k-volym").textContent = tal(INIT.kvar.volym * andel);
   $("k-slut").textContent = tal(d.slutRaknade);
-  $("k-lista").innerHTML = INIT.kvar.storsta
-    .map((k) => `<li><span class="kn">${k.namn}</span><span class="kv">${tal(k.est)}</span></li>`)
+  // Antalet distrikt är alltid färskt ur riksfilen; volymen och listan kommer
+  // från /api/kvar, som kontrollerar de återstående en och en.
+  if (!kvarLive) ritaKvar(INIT.kvar, Math.max(d.ska - d.raknade, 0));
+  else ritaKvar(kvarLive, kvarLive.antal);
+}
+
+let kvarLive = null;
+function ritaKvar(k, antal) {
+  $("k-antal").textContent = tal(antal);
+  const skala = k.antal ? antal / k.antal : 1;
+  $("k-volym").textContent = tal(k.volym * skala);
+  $("k-lista").innerHTML = (k.storsta || [])
+    .map((x) => `<li><span class="kn">${x.namn}</span><span class="kv">${tal(x.est)}</span></li>`)
     .join("");
+}
+
+async function hamtaKvar() {
+  try {
+    const r = await fetch("/api/kvar", { cache: "no-store" });
+    if (!r.ok) return;
+    const k = await r.json();
+    if (typeof k.antal === "number") { kvarLive = k; ritaKvar(k, k.antal); }
+  } catch (e) { /* behåll ögonblicksbilden */ }
 }
 
 function laggTill(d) {
@@ -372,10 +451,24 @@ async function hamta() {
   }
 }
 
+function satt(lage) {
+  document.documentElement.setAttribute("data-lage", lage);
+  $("lage-enkel").setAttribute("aria-pressed", String(lage !== "pingis"));
+  $("lage-pingis").setAttribute("aria-pressed", String(lage === "pingis"));
+  try { localStorage.setItem("mandatpingis.lage", lage); } catch (e) {}
+}
+$("lage-enkel").addEventListener("click", () => satt("enkel"));
+$("lage-pingis").addEventListener("click", () => satt("pingis"));
+let startlage = "enkel";
+try { startlage = localStorage.getItem("mandatpingis.lage") || "enkel"; } catch (e) {}
+satt(startlage);
+
 rita(INIT.snapshot);
 ritaChart();
 hamta();
+hamtaKvar();
 setInterval(hamta, 30000);
+setInterval(hamtaKvar, 180000);
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) hamta();
 });

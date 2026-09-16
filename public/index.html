@@ -105,6 +105,34 @@ ul.kvar li:last-child { border-bottom:0; }
    font-variant-numeric:tabular-nums; }
 .grid2 { display:grid; gap:22px; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
 .foot { color:var(--faint); font-size:.85rem; margin-top:34px; }
+.lagevaljare { margin-left:auto; display:inline-flex; border:1px solid var(--line);
+   border-radius:999px; overflow:hidden; }
+.lagevaljare button { font:inherit; font-family:"IBM Plex Mono",monospace;
+   font-size:.66rem; letter-spacing:.1em; text-transform:uppercase; cursor:pointer;
+   border:0; background:transparent; color:var(--faint); padding:.42rem .8rem; }
+.lagevaljare button[aria-pressed="true"] { background:var(--ink); color:var(--bg); }
+.lagevaljare button:focus-visible { outline:2px solid var(--ball); outline-offset:1px; }
+#bord { display:none; }
+/* Pingisläge: brädan blir ett bordtennisbord sett uppifrån. Nätet står kvar
+   vid 175 mandat, blockens andel tonar halvorna, och bollen ligger på den sida
+   som just nu håller det omstridda mandatet. */
+[data-lage="pingis"] .track, [data-lage="pingis"] .netlbl { display:none; }
+[data-lage="pingis"] #bord { display:block; }
+[data-lage="pingis"] .board { background:#0C4A6E; border-color:#0A3A55; }
+[data-lage="pingis"] .board .lbl, [data-lage="pingis"] .board .side .t { color:#9CC9E3; }
+[data-lage="pingis"] .board .verdict { color:#EAF4FA; }
+[data-lage="pingis"] .board .vs { color:#7FB3D0; }
+[data-lage="pingis"] .board .side.r .n { color:#FF8A8A; }
+[data-lage="pingis"] .board .side.t2 .n { color:#8FC4FF; }
+.bordyta { fill:#1668A8; }
+.bordlinje { stroke:#F2F6F8; stroke-width:3; fill:none; }
+.bordhalva.r { fill:var(--rod); } .bordhalva.t2 { fill:var(--tido); }
+.natstolpe { fill:#E8EEF2; } .nat { fill:#DCE6EC; }
+.boll { fill:#FFD34D; stroke:#7A5B00; stroke-width:1.5;
+   transition:cx .55s cubic-bezier(.34,1.3,.64,1), cy .55s ease; }
+.bolltext { fill:#EAF4FA; font-family:"IBM Plex Mono",monospace; font-size:11px; }
+.studs { animation:studs .55s ease; }
+@keyframes studs { 0%,100%{transform:translateY(0)} 45%{transform:translateY(-14px)} }
 .varn { color:var(--rod); font-weight:600; }
 @media (prefers-reduced-motion:reduce) { *{animation:none!important;transition:none!important} }
 </style>
@@ -120,6 +148,10 @@ ul.kvar li:last-child { border-bottom:0; }
       <span id="st-tid"></span>
       <span id="st-distrikt"></span>
       <span id="st-valdelt"></span>
+      <span class="lagevaljare" role="group" aria-label="Utseende">
+        <button type="button" id="lage-enkel" aria-pressed="true">Enkel</button>
+        <button type="button" id="lage-pingis" aria-pressed="false">Pingis</button>
+      </span>
     </div>
   </header>
 
@@ -136,6 +168,7 @@ ul.kvar li:last-child { border-bottom:0; }
       <div class="r" id="bar-rod"></div><div class="t2" id="bar-tido"></div>
       <div class="netline" style="left:50.143%"></div>
     </div>
+    <div id="bord"></div>
     <p class="netlbl mono">▲ nätet går vid 175 mandat</p>
     <p class="verdict" id="verdict"></p>
   </section>
@@ -184,7 +217,7 @@ ul.kvar li:last-child { border-bottom:0; }
 </div>
 
 <script>
-const INIT = {"snapshot":{"hamtat":"16 september 2026 17:21:09","raknade":6554,"ska":6626,"roster":"6 624 944","valdeltagande":"82,3 %","slutRaknade":1576,"kontroll":true,"partier":[{"p":"S","mandat":99,"andel":28.0,"andel22":30.3,"plus":281,"minus":19859,"farg":"#FF0000"},{"p":"M","mandat":70,"andel":19.8,"andel22":19.1,"plus":1235,"minus":17375,"farg":"#66BEE6"},{"p":"SD","mandat":63,"andel":17.6,"andel22":20.5,"plus":23330,"minus":177,"farg":"#4E83A3"},{"p":"V","mandat":29,"andel":8.3,"andel22":6.7,"plus":3523,"minus":14972,"farg":"#C40000"},{"p":"C","mandat":25,"andel":7.0,"andel22":6.7,"plus":9390,"minus":9094,"farg":"#63A91D"},{"p":"KD","mandat":22,"andel":6.2,"andel22":5.3,"plus":8465,"minus":10010,"farg":"#1B5CB1"},{"p":"MP","mandat":22,"andel":6.1,"andel22":5.1,"plus":16750,"minus":1725,"farg":"#008000"},{"p":"L","mandat":19,"andel":5.3,"andel22":4.6,"plus":9623,"minus":8844,"farg":"#3399FF"}],"rod":175,"tido":174,"avst":177,"sd":63,"s":99},"serie":[{"tid":"07:57","raknade":6273,"rod":176,"tido":173,"s":100,"sd":62,"avst":-4536},{"tid":"09:40","raknade":6276,"rod":176,"tido":173,"s":100,"sd":62,"avst":-4485},{"tid":"10:20","raknade":6277,"rod":176,"tido":173,"s":100,"sd":62,"avst":-4426},{"tid":"10:30","raknade":6281,"rod":176,"tido":173,"s":100,"sd":62,"avst":-4712},{"tid":"10:40","raknade":6282,"rod":176,"tido":173,"s":100,"sd":62,"avst":-4769},{"tid":"10:50","raknade":6283,"rod":176,"tido":173,"s":100,"sd":62,"avst":-4805},{"tid":"11:20","raknade":6285,"rod":176,"tido":173,"s":100,"sd":62,"avst":-4762},{"tid":"11:30","raknade":6286,"rod":176,"tido":173,"s":100,"sd":62,"avst":-4776},{"tid":"12:11","raknade":6288,"rod":176,"tido":173,"s":100,"sd":62,"avst":-4699},{"tid":"12:21","raknade":6291,"rod":176,"tido":173,"s":100,"sd":62,"avst":-4905},{"tid":"12:31","raknade":6294,"rod":176,"tido":173,"s":100,"sd":62,"avst":-5238},{"tid":"13:01","raknade":6300,"rod":176,"tido":173,"s":100,"sd":62,"avst":-5742},{"tid":"13:51","raknade":6301,"rod":176,"tido":173,"s":100,"sd":62,"avst":-5852},{"tid":"14:01","raknade":6302,"rod":176,"tido":173,"s":100,"sd":62,"avst":-5868},{"tid":"14:21","raknade":6304,"rod":176,"tido":173,"s":100,"sd":62,"avst":-6009},{"tid":"14:51","raknade":6305,"rod":176,"tido":173,"s":100,"sd":62,"avst":-6152},{"tid":"12:13","raknade":6412,"rod":176,"tido":173,"s":100,"sd":62,"avst":-3139},{"tid":"12:23","raknade":6429,"rod":176,"tido":173,"s":100,"sd":62,"avst":-2607},{"tid":"12:33","raknade":6443,"rod":176,"tido":173,"s":100,"sd":62,"avst":-2107},{"tid":"12:43","raknade":6450,"rod":176,"tido":173,"s":100,"sd":62,"avst":-1956},{"tid":"12:53","raknade":6459,"rod":176,"tido":173,"s":100,"sd":62,"avst":-1863},{"tid":"13:03","raknade":6471,"rod":176,"tido":173,"s":100,"sd":62,"avst":-1777},{"tid":"13:13","raknade":6479,"rod":176,"tido":173,"s":100,"sd":62,"avst":-1536},{"tid":"13:23","raknade":6492,"rod":176,"tido":173,"s":100,"sd":62,"avst":-1222},{"tid":"13:33","raknade":6498,"rod":176,"tido":173,"s":100,"sd":62,"avst":-1086},{"tid":"13:43","raknade":6501,"rod":176,"tido":173,"s":100,"sd":62,"avst":-866},{"tid":"13:53","raknade":6509,"rod":176,"tido":173,"s":100,"sd":62,"avst":-709},{"tid":"14:03","raknade":6516,"rod":176,"tido":173,"s":100,"sd":62,"avst":-861},{"tid":"14:13","raknade":6524,"rod":176,"tido":173,"s":100,"sd":62,"avst":-714},{"tid":"14:23","raknade":6531,"rod":176,"tido":173,"s":100,"sd":62,"avst":-350},{"tid":"14:33","raknade":6538,"rod":176,"tido":173,"s":100,"sd":62,"avst":-210},{"tid":"14:46","raknade":6541,"rod":176,"tido":173,"s":100,"sd":62,"avst":-141},{"tid":"14:49","raknade":6542,"rod":176,"tido":173,"s":100,"sd":62,"avst":-205},{"tid":"14:53","raknade":6544,"rod":176,"tido":173,"s":100,"sd":62,"avst":-90},{"tid":"15:02","raknade":6546,"rod":176,"tido":173,"s":100,"sd":62,"avst":-71},{"tid":"15:03","raknade":6547,"rod":176,"tido":173,"s":100,"sd":62,"avst":-7},{"tid":"15:07","raknade":6548,"rod":175,"tido":174,"s":99,"sd":63,"avst":49},{"tid":"15:11","raknade":6549,"rod":176,"tido":173,"s":100,"sd":62,"avst":-43},{"tid":"15:16","raknade":6550,"rod":175,"tido":174,"s":99,"sd":63,"avst":103},{"tid":"15:24","raknade":6554,"rod":175,"tido":174,"s":99,"sd":63,"avst":177}],"kvar":{"antal":76,"volym":175381,"storsta":[{"namn":"Göteborgs kommun","est":17427},{"namn":"3 Norrmalm-Östermalm-Gamla Stan","est":8982},{"namn":"Uppsala kommun","est":8914},{"namn":"1 Södermalm-Enskede","est":7405},{"namn":"2 Bromma-Kungsholmen","est":6350},{"namn":"5 Västra Söderort","est":5899},{"namn":"6 Yttre Västerort","est":5842},{"namn":"Lunds kommun","est":5598}]}};
+const INIT = {"snapshot":{"hamtat":"16 september 2026 17:56:29","raknade":6571,"ska":6626,"roster":"6 652 175","valdeltagande":"82,6 %","slutRaknade":1745,"kontroll":true,"partier":[{"p":"S","mandat":100,"andel":28.0,"andel22":30.3,"plus":26243,"minus":365,"farg":"#FF0000"},{"p":"M","mandat":70,"andel":19.8,"andel22":19.1,"plus":1135,"minus":17607,"farg":"#66BEE6"},{"p":"SD","mandat":62,"andel":17.6,"andel22":20.5,"plus":230,"minus":19248,"farg":"#4E83A3"},{"p":"V","mandat":29,"andel":8.3,"andel22":6.7,"plus":2776,"minus":15815,"farg":"#C40000"},{"p":"C","mandat":25,"andel":7.0,"andel22":6.7,"plus":9526,"minus":9051,"farg":"#63A91D"},{"p":"KD","mandat":22,"andel":6.2,"andel22":5.3,"plus":8518,"minus":10048,"farg":"#1B5CB1"},{"p":"MP","mandat":22,"andel":6.1,"andel22":5.1,"plus":16828,"minus":1738,"farg":"#008000"},{"p":"L","mandat":19,"andel":5.3,"andel22":4.6,"plus":9761,"minus":8794,"farg":"#3399FF"}],"rod":176,"tido":173,"avst":-230,"sd":62,"s":100},"serie":[{"tid":"07:57","raknade":6273,"rod":176,"tido":173,"s":100,"sd":62,"avst":-4536},{"tid":"09:40","raknade":6276,"rod":176,"tido":173,"s":100,"sd":62,"avst":-4485},{"tid":"10:20","raknade":6277,"rod":176,"tido":173,"s":100,"sd":62,"avst":-4426},{"tid":"10:30","raknade":6281,"rod":176,"tido":173,"s":100,"sd":62,"avst":-4712},{"tid":"10:40","raknade":6282,"rod":176,"tido":173,"s":100,"sd":62,"avst":-4769},{"tid":"10:50","raknade":6283,"rod":176,"tido":173,"s":100,"sd":62,"avst":-4805},{"tid":"11:20","raknade":6285,"rod":176,"tido":173,"s":100,"sd":62,"avst":-4762},{"tid":"11:30","raknade":6286,"rod":176,"tido":173,"s":100,"sd":62,"avst":-4776},{"tid":"12:11","raknade":6288,"rod":176,"tido":173,"s":100,"sd":62,"avst":-4699},{"tid":"12:21","raknade":6291,"rod":176,"tido":173,"s":100,"sd":62,"avst":-4905},{"tid":"12:31","raknade":6294,"rod":176,"tido":173,"s":100,"sd":62,"avst":-5238},{"tid":"13:01","raknade":6300,"rod":176,"tido":173,"s":100,"sd":62,"avst":-5742},{"tid":"13:51","raknade":6301,"rod":176,"tido":173,"s":100,"sd":62,"avst":-5852},{"tid":"14:01","raknade":6302,"rod":176,"tido":173,"s":100,"sd":62,"avst":-5868},{"tid":"14:21","raknade":6304,"rod":176,"tido":173,"s":100,"sd":62,"avst":-6009},{"tid":"14:51","raknade":6305,"rod":176,"tido":173,"s":100,"sd":62,"avst":-6152},{"tid":"12:13","raknade":6412,"rod":176,"tido":173,"s":100,"sd":62,"avst":-3139},{"tid":"12:23","raknade":6429,"rod":176,"tido":173,"s":100,"sd":62,"avst":-2607},{"tid":"12:33","raknade":6443,"rod":176,"tido":173,"s":100,"sd":62,"avst":-2107},{"tid":"12:43","raknade":6450,"rod":176,"tido":173,"s":100,"sd":62,"avst":-1956},{"tid":"12:53","raknade":6459,"rod":176,"tido":173,"s":100,"sd":62,"avst":-1863},{"tid":"13:03","raknade":6471,"rod":176,"tido":173,"s":100,"sd":62,"avst":-1777},{"tid":"13:13","raknade":6479,"rod":176,"tido":173,"s":100,"sd":62,"avst":-1536},{"tid":"13:23","raknade":6492,"rod":176,"tido":173,"s":100,"sd":62,"avst":-1222},{"tid":"13:33","raknade":6498,"rod":176,"tido":173,"s":100,"sd":62,"avst":-1086},{"tid":"13:43","raknade":6501,"rod":176,"tido":173,"s":100,"sd":62,"avst":-866},{"tid":"13:53","raknade":6509,"rod":176,"tido":173,"s":100,"sd":62,"avst":-709},{"tid":"14:03","raknade":6516,"rod":176,"tido":173,"s":100,"sd":62,"avst":-861},{"tid":"14:13","raknade":6524,"rod":176,"tido":173,"s":100,"sd":62,"avst":-714},{"tid":"14:23","raknade":6531,"rod":176,"tido":173,"s":100,"sd":62,"avst":-350},{"tid":"14:33","raknade":6538,"rod":176,"tido":173,"s":100,"sd":62,"avst":-210},{"tid":"14:46","raknade":6541,"rod":176,"tido":173,"s":100,"sd":62,"avst":-141},{"tid":"14:49","raknade":6542,"rod":176,"tido":173,"s":100,"sd":62,"avst":-205},{"tid":"14:53","raknade":6544,"rod":176,"tido":173,"s":100,"sd":62,"avst":-90},{"tid":"15:02","raknade":6546,"rod":176,"tido":173,"s":100,"sd":62,"avst":-71},{"tid":"15:03","raknade":6547,"rod":176,"tido":173,"s":100,"sd":62,"avst":-7},{"tid":"15:07","raknade":6548,"rod":175,"tido":174,"s":99,"sd":63,"avst":49},{"tid":"15:11","raknade":6549,"rod":176,"tido":173,"s":100,"sd":62,"avst":-43},{"tid":"15:16","raknade":6550,"rod":175,"tido":174,"s":99,"sd":63,"avst":103},{"tid":"15:24","raknade":6554,"rod":175,"tido":174,"s":99,"sd":63,"avst":177},{"tid":"15:33","raknade":6559,"rod":176,"tido":173,"s":100,"sd":62,"avst":-402},{"tid":"15:43","raknade":6563,"rod":176,"tido":173,"s":100,"sd":62,"avst":-164},{"tid":"15:53","raknade":6566,"rod":175,"tido":174,"s":99,"sd":63,"avst":24},{"tid":"15:58","raknade":6571,"rod":176,"tido":173,"s":100,"sd":62,"avst":-230}],"kvar":{"antal":57,"volym":155629,"storsta":[{"namn":"Göteborgs kommun","est":17960},{"namn":"3 Norrmalm-Östermalm-Gamla Stan","est":9256},{"namn":"Uppsala kommun","est":9186},{"namn":"1 Södermalm-Enskede","est":7631},{"namn":"2 Bromma-Kungsholmen","est":6544},{"namn":"5 Västra Söderort","est":6080},{"namn":"6 Yttre Västerort","est":6020},{"namn":"Lunds kommun","est":5769}]}};
 const MAJ = 175, TOT = 349;
 const $ = (id) => document.getElementById(id);
 // toLocaleString ger hårt mellanslag, som får full teckenbredd i IBM Plex Mono
@@ -246,6 +279,32 @@ function ritaChart() {
     + ` Ringar markerar de ${byten} gånger mandatet bytt ägare.`;
 }
 
+function ritaBord(d) {
+  const W = 860, H = 246, M = 32;
+  const bw = W - M * 2, bh = H - M * 2;
+  const natX = M + bw * MAJ / TOT;
+  const rodB = bw * d.rod / TOT, tidoB = bw * d.tido / TOT;
+  const harRod = d.avst == null ? null : d.avst < 0;   // SD saknar -> S håller det
+  const bollX = harRod === null ? natX : harRod ? M + rodB * 0.55 : M + bw - tidoB * 0.55;
+  const bollY = M + bh * 0.5;
+  $("bord").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img"
+      aria-label="Bordtennisbord där nätet står vid 175 mandat och bollen ligger hos den sida som håller det omstridda mandatet">
+    <rect x="${M}" y="${M}" width="${bw}" height="${bh}" rx="4" class="bordyta"/>
+    <rect x="${M}" y="${M}" width="${rodB.toFixed(1)}" height="${bh}" class="bordhalva r" opacity="0.30"/>
+    <rect x="${(M + bw - tidoB).toFixed(1)}" y="${M}" width="${tidoB.toFixed(1)}" height="${bh}" class="bordhalva t2" opacity="0.30"/>
+    <rect x="${M}" y="${M}" width="${bw}" height="${bh}" rx="4" class="bordlinje"/>
+    <line x1="${M}" y1="${M + bh / 2}" x2="${W - M}" y2="${M + bh / 2}" class="bordlinje" stroke-width="2"/>
+    <rect x="${natX - 1.5}" y="${M - 9}" width="3" height="${bh + 18}" class="nat"/>
+    <rect x="${natX - 5}" y="${M - 14}" width="10" height="6" rx="2" class="natstolpe"/>
+    <rect x="${natX - 5}" y="${M + bh + 8}" width="10" height="6" rx="2" class="natstolpe"/>
+    <circle id="bollen" cx="${bollX.toFixed(1)}" cy="${bollY}" r="11" class="boll"/>
+    <text x="${M}" y="${H - 4}" class="bolltext">Rödgröna</text>
+    <text x="${W - M}" y="${H - 4}" class="bolltext" text-anchor="end">Tidö</text>
+    <text x="${natX}" y="11" class="bolltext" text-anchor="middle">175</text>
+  </svg>`;
+}
+
+let forraSd = null;
 function rita(d) {
   $("st-tid").textContent = "Uppdaterad " + d.hamtat;
   $("st-distrikt").textContent = `${tal(d.raknade)} av ${tal(d.ska)} distrikt · ${(d.raknade / d.ska * 100).toFixed(1)} %`;
@@ -274,6 +333,12 @@ function rita(d) {
     v = led + lage;
   }
   $("verdict").innerHTML = v;
+  ritaBord(d);
+  if (forraSd !== null && d.sd !== forraSd) {
+    const b = $("bollen");
+    if (b) { b.classList.remove("studs"); void b.getBBox(); b.classList.add("studs"); }
+  }
+  forraSd = d.sd;
 
   $("tbody").innerHTML = d.partier.map((p) => `<tr>`
     + `<th scope="row"><span class="dot" style="background:${p.farg || "#8E99AA"}"></span>${p.p}</th>`
@@ -283,16 +348,30 @@ function rita(d) {
     + `<td class="num">${d.kontroll ? tal(p.plus) : "—"}</td>`
     + `<td class="num">${d.kontroll && p.minus != null ? tal(p.minus) : "—"}</td></tr>`).join("");
 
-  // Volymen kan bara skalas, inte räknas om live: den bygger på ett svep av
-  // 314 föräldrafiler som görs vid bygget.
-  const kvarNu = Math.max(d.ska - d.raknade, 0);
-  const andel = INIT.kvar.antal ? kvarNu / INIT.kvar.antal : 0;
-  $("k-antal").textContent = tal(kvarNu);
-  $("k-volym").textContent = tal(INIT.kvar.volym * andel);
   $("k-slut").textContent = tal(d.slutRaknade);
-  $("k-lista").innerHTML = INIT.kvar.storsta
-    .map((k) => `<li><span class="kn">${k.namn}</span><span class="kv">${tal(k.est)}</span></li>`)
+  // Antalet distrikt är alltid färskt ur riksfilen; volymen och listan kommer
+  // från /api/kvar, som kontrollerar de återstående en och en.
+  if (!kvarLive) ritaKvar(INIT.kvar, Math.max(d.ska - d.raknade, 0));
+  else ritaKvar(kvarLive, kvarLive.antal);
+}
+
+let kvarLive = null;
+function ritaKvar(k, antal) {
+  $("k-antal").textContent = tal(antal);
+  const skala = k.antal ? antal / k.antal : 1;
+  $("k-volym").textContent = tal(k.volym * skala);
+  $("k-lista").innerHTML = (k.storsta || [])
+    .map((x) => `<li><span class="kn">${x.namn}</span><span class="kv">${tal(x.est)}</span></li>`)
     .join("");
+}
+
+async function hamtaKvar() {
+  try {
+    const r = await fetch("/api/kvar", { cache: "no-store" });
+    if (!r.ok) return;
+    const k = await r.json();
+    if (typeof k.antal === "number") { kvarLive = k; ritaKvar(k, k.antal); }
+  } catch (e) { /* behåll ögonblicksbilden */ }
 }
 
 function laggTill(d) {
@@ -331,10 +410,24 @@ async function hamta() {
   }
 }
 
+function satt(lage) {
+  document.documentElement.setAttribute("data-lage", lage);
+  $("lage-enkel").setAttribute("aria-pressed", String(lage !== "pingis"));
+  $("lage-pingis").setAttribute("aria-pressed", String(lage === "pingis"));
+  try { localStorage.setItem("mandatpingis.lage", lage); } catch (e) {}
+}
+$("lage-enkel").addEventListener("click", () => satt("enkel"));
+$("lage-pingis").addEventListener("click", () => satt("pingis"));
+let startlage = "enkel";
+try { startlage = localStorage.getItem("mandatpingis.lage") || "enkel"; } catch (e) {}
+satt(startlage);
+
 rita(INIT.snapshot);
 ritaChart();
 hamta();
+hamtaKvar();
 setInterval(hamta, 30000);
+setInterval(hamtaKvar, 180000);
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) hamta();
 });

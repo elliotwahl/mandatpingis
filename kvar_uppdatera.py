@@ -106,6 +106,22 @@ def main():
     }
     json.dump(ut, open(os.path.join(DATA, "kvar.json"), "w", encoding="utf-8"),
               ensure_ascii=False)
+
+    # Lista över de föräldrar som fortfarande saknas, med förväntad volym.
+    # Funktionen /api/kvar kontrollerar bara dessa — ett distrikt som väl
+    # rapporterat blir aldrig orapporterat igen, så listan krymper monotont
+    # och sveper aldrig mer än vad som faktiskt är kvar.
+    lista = [{"n": k, "namn": n26[k]["namn"], "est": round(n22[k]["upp"] * vaxt)}
+             for k in n26 if n26[k]["upp"] == 0 and k in n22]
+    lista.sort(key=lambda x: -x["est"])
+    json.dump(lista, open(os.path.join(DATA, "kvarlista.json"), "w",
+                          encoding="utf-8"), ensure_ascii=False)
+    # Samma lista bredvid funktionen, så esbuild kan bunta in den.
+    fn = os.path.join(ROT, "netlify", "functions")
+    os.makedirs(fn, exist_ok=True)
+    json.dump(lista, open(os.path.join(fn, "kvarlista.json"), "w",
+                          encoding="utf-8"), ensure_ascii=False)
+    print(f"kvarlista.json: {len(lista)} föräldrar att kontrollera live")
     print(f"{ut['antal']} kvar, uppskattat {ut['volym']:,} röster "
           f"(uppräkning {vaxt:.3f})".replace(",", " "))
 
