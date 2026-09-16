@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mandatpingis — ett mandat avgör riksdagsmajoriteten</title>
+<meta name="description" content="Ett riksdagsmandat studsar mellan S och SD medan onsdagsrösterna räknas. Live-läge ur Valmyndighetens preliminära resultat.">
+<meta name="robots" content="index,follow">
+<meta property="og:title" content="Mandatpingis">
+<meta property="og:description" content="Ett riksdagsmandat studsar mellan S och SD medan onsdagsrösterna räknas.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root {
+  --bg:#F4F6F9; --panel:#FFFFFF; --ink:#101620; --dim:#5D6879; --faint:#8E99AA;
+  --line:#DCE2EB; --net:#101620; --ball:#E0A400;
+  --rod:#C40000; --tido:#1B5CB1;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:#0D1117; --panel:#151B24; --ink:#E9EEF5; --dim:#97A3B4; --faint:#6E7A8B;
+    --line:#232C38; --net:#E9EEF5; --ball:#FFC531;
+    --rod:#FF5A5A; --tido:#6FA8FF;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:#0D1117; --panel:#151B24; --ink:#E9EEF5; --dim:#97A3B4; --faint:#6E7A8B;
+  --line:#232C38; --net:#E9EEF5; --ball:#FFC531;
+  --rod:#FF5A5A; --tido:#6FA8FF;
+}
+* { box-sizing:border-box; }
+html, body { margin:0; }
+img { max-width:100%; }
+body {
+  background:var(--bg); color:var(--ink);
+  font-family:"Familjen Grotesk", system-ui, -apple-system, sans-serif;
+  font-size:16px; line-height:1.5;
+}
+.wrap { max-width:900px; margin:0 auto; padding-inline:20px; padding-block:32px 56px; }
+.mono { font-family:"IBM Plex Mono", ui-monospace, monospace; }
+.num { font-variant-numeric:tabular-nums; }
+h1 { font-size:clamp(2.1rem,7vw,3.2rem); font-weight:700; letter-spacing:-.02em;
+     margin:0; text-wrap:balance; }
+.sub { color:var(--dim); margin:.35rem 0 0; max-width:62ch; }
+.stamp { font-family:"IBM Plex Mono", monospace; font-size:.72rem; letter-spacing:.09em;
+   text-transform:uppercase; color:var(--faint); display:flex; flex-wrap:wrap; gap:.4rem 1.1rem;
+   margin-top:1.1rem; }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:10px;
+   padding:22px; margin-top:22px; }
+.lbl { font-family:"IBM Plex Mono", monospace; font-size:.7rem; letter-spacing:.12em;
+   text-transform:uppercase; color:var(--faint); margin:0 0 .9rem; }
+
+/* bordet */
+.board { text-align:center; }
+.score { display:flex; align-items:flex-end; justify-content:center; gap:clamp(14px,5vw,44px);
+   margin-bottom:18px; flex-wrap:wrap; }
+.side .n { font-size:clamp(3rem,13vw,5rem); font-weight:700; line-height:.9;
+   font-variant-numeric:tabular-nums; display:block; }
+.side .t { font-family:"IBM Plex Mono", monospace; font-size:.72rem; letter-spacing:.11em;
+   text-transform:uppercase; color:var(--dim); }
+.side.r .n { color:var(--rod); } .side.t2 .n { color:var(--tido); }
+.side.win .n::after { content:""; display:block; height:3px; margin-top:.35rem;
+   background:currentColor; border-radius:2px; }
+.vs { font-family:"IBM Plex Mono", monospace; color:var(--faint); font-size:.8rem;
+   padding-bottom:1.2rem; }
+.track { position:relative; height:44px; border-radius:6px; overflow:hidden;
+   background:var(--line); display:flex; }
+.track .r { background:var(--rod); } .track .t2 { background:var(--tido); }
+.netline { position:absolute; top:-9px; bottom:-9px; width:3px; background:var(--net);
+   box-shadow:0 0 0 2px var(--panel); border-radius:2px; }
+.netlbl { font-family:"IBM Plex Mono", monospace; font-size:.68rem; letter-spacing:.1em;
+   color:var(--dim); margin-top:14px; }
+.verdict { margin-top:16px; font-size:1.05rem; text-wrap:balance; }
+.verdict strong { font-variant-numeric:tabular-nums; }
+
+/* diagram */
+svg { width:100%; height:auto; display:block; }
+.grid { stroke:var(--line); stroke-width:1; }
+.grid.zero { stroke:var(--net); stroke-width:1.5; stroke-dasharray:4 3; }
+.tick { fill:var(--faint); font-family:"IBM Plex Mono", monospace; font-size:10px; }
+.linje { fill:none; stroke:var(--ball); stroke-width:2.2; stroke-linejoin:round; }
+.fyll { fill:var(--ball); opacity:.10; }
+.flip { fill:var(--bg); stroke:var(--ball); stroke-width:2.2; }
+.nu { fill:var(--ball); stroke:var(--panel); stroke-width:2.5; }
+
+table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+th, td { padding:.5rem .35rem; border-bottom:1px solid var(--line); text-align:right; }
+thead th { font-family:"IBM Plex Mono", monospace; font-size:.64rem; letter-spacing:.09em;
+   text-transform:uppercase; color:var(--faint); font-weight:500; white-space:nowrap; }
+tbody th { text-align:left; font-weight:600; white-space:nowrap; }
+td.stor { font-size:1.15rem; font-weight:600; }
+td.dim { color:var(--faint); }
+.dot { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:.5rem;
+   vertical-align:baseline; }
+.tblwrap { overflow-x:auto; }
+
+ul.kvar { list-style:none; margin:0; padding:0; }
+ul.kvar li { display:flex; justify-content:space-between; gap:1rem; padding:.42rem 0;
+   border-bottom:1px solid var(--line); }
+ul.kvar li:last-child { border-bottom:0; }
+.kn { color:var(--ink); } .kv { font-family:"IBM Plex Mono", monospace; color:var(--dim);
+   font-variant-numeric:tabular-nums; }
+.grid2 { display:grid; gap:22px; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
+.foot { color:var(--faint); font-size:.85rem; margin-top:34px; }
+.foot a { color:var(--dim); }
+@media (prefers-reduced-motion:reduce) { * { animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Mandatpingis</h1>
+    <p class="sub">Ett enda riksdagsmandat studsar mellan S och SD medan onsdagsrösterna
+      räknas. Det avgör om de rödgröna behåller egen majoritet.</p>
+    <div class="stamp">
+      <span>Uppdaterad 16 september 2026 17:09:43</span>
+      <span>6 550 av 6 626 distrikt · 98.9 %</span>
+      <span>Valdeltagande 82,2 %</span>
+    </div>
+  </header>
+
+  <section class="card board">
+    <p class="lbl">Blocken · majoritet vid 175 av 349</p>
+    <div class="score">
+      <div class="side r win">
+        <span class="n">175</span><span class="t">Rödgröna · S V MP C</span></div>
+      <div class="vs">mot</div>
+      <div class="side t2 ">
+        <span class="n">174</span><span class="t">Tidö · M KD L SD</span></div>
+    </div>
+    <div class="track">
+      <div class="r" style="width:50.143%"></div>
+      <div class="t2" style="width:49.857%"></div>
+      <div class="netline" style="left:50.143%"></div>
+    </div>
+    <p class="netlbl mono">▲ nätet går vid 175 mandat</p>
+    <p class="verdict">De rödgröna har egen majoritet — med 1 mandats marginal.
+      Det omstridda mandatet: SD håller det med <strong>103</strong> rösters marginal.</p>
+  </section>
+
+  <section class="card">
+    <p class="lbl">Pingisen · avstånd till det 349:e mandatet, per avläsning</p>
+    <svg viewBox="0 0 860 260" role="img"
+         aria-label="Avståndet i röster mellan SD och det sista mandatet över eftermiddagen">
+      <line x1="62" y1="208.6" x2="842" y2="208.6" class="grid"/><text x="54" y="212.1" class="tick" text-anchor="end">5 000</text><line x1="62" y1="120.4" x2="842" y2="120.4" class="grid"/><text x="54" y="123.9" class="tick" text-anchor="end">1 000</text><line x1="62" y1="81.0" x2="842" y2="81.0" class="grid"/><text x="54" y="84.5" class="tick" text-anchor="end">200</text><line x1="62" y1="49.1" x2="842" y2="49.1" class="grid zero"/><text x="54" y="52.6" class="tick" text-anchor="end">delat</text>
+      <path d="M 62.0,49.1 L 62.0,201.0 L 82.5,200.1 L 103.1,199.1 L 123.6,203.9 L 144.1,204.8 L 164.6,205.4 L 185.2,204.7 L 205.7,205.0 L 226.2,203.7 L 246.7,207.1 L 267.3,212.3 L 287.8,220.0 L 308.3,221.6 L 328.8,221.9 L 349.4,223.9 L 369.9,226.0 L 390.4,175.5 L 410.9,164.2 L 431.5,152.6 L 452.0,148.8 L 472.5,146.4 L 493.1,144.2 L 513.6,137.5 L 534.1,127.9 L 554.6,123.4 L 575.2,115.5 L 595.7,109.1 L 616.2,115.3 L 636.7,109.3 L 657.3,91.3 L 677.8,81.8 L 698.3,75.9 L 718.8,81.4 L 739.4,70.5 L 759.9,68.1 L 780.4,55.0 L 800.9,33.3 L 821.5,63.9 L 842.0,26.2 L 842.0,49.1 Z" class="fyll"/>
+      <polyline class="linje" points="62.0,201.0 82.5,200.1 103.1,199.1 123.6,203.9 144.1,204.8 164.6,205.4 185.2,204.7 205.7,205.0 226.2,203.7 246.7,207.1 267.3,212.3 287.8,220.0 308.3,221.6 328.8,221.9 349.4,223.9 369.9,226.0 390.4,175.5 410.9,164.2 431.5,152.6 452.0,148.8 472.5,146.4 493.1,144.2 513.6,137.5 534.1,127.9 554.6,123.4 575.2,115.5 595.7,109.1 616.2,115.3 636.7,109.3 657.3,91.3 677.8,81.8 698.3,75.9 718.8,81.4 739.4,70.5 759.9,68.1 780.4,55.0 800.9,33.3 821.5,63.9 842.0,26.2"/>
+      <circle cx="800.9" cy="33.3" r="4.5" class="flip"/><circle cx="821.5" cy="63.9" r="4.5" class="flip"/><circle cx="842.0" cy="26.2" r="4.5" class="flip"/><circle cx="842.0" cy="26.2" r="6" class="nu"/>
+      <text x="62" y="250" class="tick">07:57 · 6 273 distrikt</text>
+      <text x="842" y="250" class="tick" text-anchor="end">15:16 · 6 550 distrikt</text>
+    </svg>
+    <p class="netlbl mono">Över den streckade linjen håller SD mandatet, under saknas det.
+      Ringar markerar de 3 gånger mandatet bytt ägare.</p>
+  </section>
+
+  <section class="card">
+    <p class="lbl">Partierna</p>
+    <div class="tblwrap">
+      <table>
+        <thead><tr><th scope="col" style="text-align:left">Parti</th>
+          <th scope="col">Mandat</th><th scope="col">Andel</th><th scope="col">2022</th>
+          <th scope="col">+1 kräver</th><th scope="col">−1 vid tapp</th></tr></thead>
+        <tbody><tr><th scope="row"><span class="dot" style="background:#FF0000"></span>S</th><td class="num stor">99</td><td class="num">28,0 %</td><td class="num dim">30,3</td><td class="num">163</td><td class="num">20 081</td></tr><tr><th scope="row"><span class="dot" style="background:#66BEE6"></span>M</th><td class="num stor">70</td><td class="num">19,8 %</td><td class="num dim">19,1</td><td class="num">1 319</td><td class="num">17 195</td></tr><tr><th scope="row"><span class="dot" style="background:#4E83A3"></span>SD</th><td class="num stor">63</td><td class="num">17,6 %</td><td class="num dim">20,5</td><td class="num">23 294</td><td class="num">103</td></tr><tr><th scope="row"><span class="dot" style="background:#C40000"></span>V</th><td class="num stor">29</td><td class="num">8,3 %</td><td class="num dim">6,7</td><td class="num">3 628</td><td class="num">14 819</td></tr><tr><th scope="row"><span class="dot" style="background:#63A91D"></span>C</th><td class="num stor">25</td><td class="num">7,0 %</td><td class="num dim">6,7</td><td class="num">9 324</td><td class="num">9 117</td></tr><tr><th scope="row"><span class="dot" style="background:#1B5CB1"></span>KD</th><td class="num stor">22</td><td class="num">6,2 %</td><td class="num dim">5,3</td><td class="num">8 407</td><td class="num">10 029</td></tr><tr><th scope="row"><span class="dot" style="background:#008000"></span>MP</th><td class="num stor">22</td><td class="num">6,1 %</td><td class="num dim">5,1</td><td class="num">16 744</td><td class="num">1 692</td></tr><tr><th scope="row"><span class="dot" style="background:#3399FF"></span>L</th><td class="num stor">19</td><td class="num">5,3 %</td><td class="num dim">4,6</td><td class="num">9 627</td><td class="num">8 804</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="grid2">
+    <section class="card">
+      <p class="lbl">Kvar att räkna</p>
+      <p style="margin:0 0 .8rem"><span class="mono num" style="font-size:2rem;font-weight:600">76</span>
+        uppsamlingsdistrikt, uppskattat <span class="mono num">175 381</span> röster.</p>
+      <p style="margin:0;color:var(--dim);font-size:.92rem">Det är sena förtidsröster och
+        brevröster som inte kunnat knytas till ett vallokalsdistrikt. Alla 6 312 vallokalsdistrikt
+        är färdigräknade. Länsstyrelserna har hittills räknat om 1 556 distrikt.</p>
+    </section>
+    <section class="card">
+      <p class="lbl">Störst av det som saknas</p>
+      <ul class="kvar"><li><span class="kn">Göteborgs kommun</span><span class="kv">17 427</span></li><li><span class="kn">3 Norrmalm-Östermalm-Gamla Stan</span><span class="kv">8 982</span></li><li><span class="kn">Uppsala kommun</span><span class="kv">8 914</span></li><li><span class="kn">1 Södermalm-Enskede</span><span class="kv">7 405</span></li><li><span class="kn">2 Bromma-Kungsholmen</span><span class="kv">6 350</span></li><li><span class="kn">5 Västra Söderort</span><span class="kv">5 899</span></li><li><span class="kn">6 Yttre Västerort</span><span class="kv">5 842</span></li><li><span class="kn">Lunds kommun</span><span class="kv">5 598</span></li></ul>
+    </section>
+  </div>
+
+  <p class="foot">Källa: Valmyndigheten, <span class="mono">resultat.val.se</span>, preliminärt
+    resultat. Mandatfördelningen är omräknad med jämkade uddatalsmetoden och stämd mot
+    Valmyndighetens egen fördelning vid varje avläsning. Volymen som återstår är uppskattad ur
+    2022 års utfall per kommun och är inte ett officiellt tal. Siffrorna är preliminära —
+    länsstyrelsernas slutliga rösträkning är en omräkning där redan räknade tal kan ändras.</p>
+</div>
+</body>
+</html>

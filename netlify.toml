@@ -1,0 +1,20 @@
+[build]
+  publish = "public"
+
+# Ingen byggkommando: sidan genereras lokalt med
+#   python3 hamta_data.py && python3 bygg.py
+# och public/index.html checkas in. Netlify har ingen tillgång till
+# mandatmarginal-projektets sparade råfiler, så serien kan inte byggas där.
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Sidan är en ögonblicksbild. Låt den inte ligga kvar länge i cache,
+# annars visar en omladdning gammal räkning.
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
