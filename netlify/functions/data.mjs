@@ -94,7 +94,13 @@ export default async () => {
   const sd = marg.SD;
   const avst = sd ? (t.SD >= 63 ? sd.minus : -sd.plus) : null;
 
+  // När alla distrikt är räknade slutar sidan polla och funktionen ska sluta
+  // belasta val.se. Svaret får då lång cache, så kanten serverar det utan att
+  // väcka funktionen igen.
+  const klar = prel.antalValdistriktRaknade >= prel.antalValdistriktSomSkaRaknas;
+
   return Response.json({
+    klar,
     hamtat: prel.senasteRapporteringstid,
     raknade: prel.antalValdistriktRaknade,
     ska: prel.antalValdistriktSomSkaRaknas,
@@ -123,7 +129,10 @@ export default async () => {
     headers: {
       // Källan uppdateras ungefär varje minut; håll svaret kort men inte noll,
       // så att många samtidiga läsare inte multiplicerar trafiken mot val.se.
-      "cache-control": "public, max-age=20, stale-while-revalidate=40",
+      // Är räkningen klar ändras ingenting mer — cacha då länge.
+      "cache-control": klar
+        ? "public, max-age=21600, s-maxage=86400"
+        : "public, max-age=20, stale-while-revalidate=40",
     },
   });
 };

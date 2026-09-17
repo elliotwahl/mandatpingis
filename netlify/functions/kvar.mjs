@@ -39,7 +39,19 @@ async function rapporterat(nyckel) {
   }
 }
 
+const FARDIG = {
+  "cache-control": "public, max-age=21600, s-maxage=86400",
+};
+
 export default async () => {
+  // Inget kvar att kontrollera: svara utan att röra val.se alls.
+  if (!lista.length) {
+    return Response.json({
+      antal: 0, volym: 0, storsta: [], kontrollerade: 0, osakra: 0,
+      klar: true, tid: new Date().toISOString(),
+    }, { headers: FARDIG });
+  }
+
   const kvar = [];
   let osakra = 0;
 
@@ -53,15 +65,18 @@ export default async () => {
   }
 
   kvar.sort((a, b) => b.est - a.est);
+  // Alla har rapporterat: inget mer kommer att ändras, sluta svepa.
+  const klar = kvar.length === 0;
   return Response.json({
     antal: kvar.length,
     volym: kvar.reduce((s, x) => s + x.est, 0),
     storsta: kvar.slice(0, 8).map((x) => ({ namn: x.namn, est: x.est })),
     kontrollerade: lista.length,
     osakra,
+    klar,
     tid: new Date().toISOString(),
   }, {
-    headers: {
+    headers: klar ? FARDIG : {
       "cache-control": "public, max-age=300, stale-while-revalidate=600",
     },
   });

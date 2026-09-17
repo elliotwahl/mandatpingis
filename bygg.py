@@ -175,6 +175,15 @@ ul.kvar li:last-child { border-bottom:0; }
 .studs { animation:studs .55s ease; }
 @keyframes studs { 0%,100%{transform:translateY(0)} 45%{transform:translateY(-14px)} }
 .varn { color:var(--rod); font-weight:600; }
+.puls.klar { color:var(--faint); } .puls.klar i { animation:none; border-radius:1px; }
+.slutnot { margin-top:14px; padding:12px 14px; border:1px solid var(--line);
+   border-radius:8px; background:var(--bg); color:var(--dim); font-size:.92rem;
+   text-align:left; }
+.slutnot strong { color:var(--ink); }
+.slutnot a { color:var(--dim); }
+[data-lage="pingis"] .slutnot { background:#0A3A55; border-color:#14587F; color:#CFE4F0; }
+[data-lage="pingis"] .slutnot strong { color:#EAF4FA; }
+[data-lage="pingis"] .slutnot a { color:#CFE4F0; }
 @media (prefers-reduced-motion:reduce) { *{animation:none!important;transition:none!important} }
 </style>
 </head>
@@ -212,6 +221,7 @@ ul.kvar li:last-child { border-bottom:0; }
     <div id="bord"></div>
     <p class="netlbl mono">▲ nätet går vid 175 mandat</p>
     <p class="verdict" id="verdict"></p>
+    <div class="slutnot" id="slutnot" hidden></div>
   </section>
 
   <section class="card">
@@ -407,11 +417,13 @@ function ritaKvar(k, antal) {
 }
 
 async function hamtaKvar() {
+  if (stoppad) return;
   try {
     const r = await fetch("/api/kvar", { cache: "no-store" });
     if (!r.ok) return;
     const k = await r.json();
     if (typeof k.antal === "number") { kvarLive = k; ritaKvar(k, k.antal); }
+    if (k.klar && tKvar) { clearInterval(tKvar); tKvar = null; }
   } catch (e) { /* behåll ögonblicksbilden */ }
 }
 
@@ -429,8 +441,33 @@ function laggTill(d) {
   spara();
 }
 
+// Timer-id:n så att pollningen går att stoppa när räkningen är klar.
+let tData = null, tKvar = null, stoppad = false;
+
+function stoppa(d) {
+  if (stoppad) return;
+  stoppad = true;
+  if (tData) clearInterval(tData);
+  if (tKvar) clearInterval(tKvar);
+  tData = tKvar = null;
+  $("puls").classList.remove("av");
+  $("puls").classList.add("klar");
+  $("pulstext").textContent = "sluträknat";
+  const n = $("slutnot");
+  n.innerHTML = `<strong>Alla ${tal(d.ska)} distrikt är räknade.</strong> Sidan slutar`
+    + ` hämta nya siffror här. Den preliminära räkningen är därmed klar — men`
+    + ` länsstyrelsernas slutliga rösträkning pågår fortfarande och är en omräkning,`
+    + ` inte en påbyggnad, så fördelningen kan ännu ändras. Följ den hos`
+    + ` <a href="https://resultat.val.se/val2026" rel="noopener">Valmyndigheten</a>.`;
+  n.hidden = false;
+}
+
+const arKlar = (d) => d && (d.klar === true ||
+  (typeof d.raknade === "number" && typeof d.ska === "number" && d.raknade >= d.ska));
+
 let fel = 0;
 async function hamta() {
+  if (stoppad) return;
   try {
     const r = await fetch("/api/data", { cache: "no-store" });
     if (!r.ok) throw new Error(r.status);
@@ -442,6 +479,7 @@ async function hamta() {
     laggTill(d);
     rita(d);
     ritaChart();
+    if (arKlar(d)) stoppa(d);
   } catch (e) {
     fel++;
     if (fel >= 2) {
@@ -465,13 +503,19 @@ satt(startlage);
 
 rita(INIT.snapshot);
 ritaChart();
-hamta();
-hamtaKvar();
-setInterval(hamta, 30000);
-setInterval(hamtaKvar, 180000);
-document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) hamta();
-});
+if (arKlar(INIT.snapshot)) {
+  // Redan färdigräknat vid bygget: hämta en sista gång för korrekta siffror,
+  // sedan inget mer.
+  hamta();
+} else {
+  hamta();
+  hamtaKvar();
+  tData = setInterval(hamta, 30000);
+  tKvar = setInterval(hamtaKvar, 180000);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && !stoppad) hamta();
+  });
+}
 </script>
 </body>
 </html>
